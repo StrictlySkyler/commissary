@@ -62,7 +62,7 @@ const update = async (lane, values) => {
 };
 
 const work = (lane, manifest) => {
-  pick_meal(manifest, lane, done);
+  pick_meal(manifest, lane, done).catch(err => console.error);
   return manifest;
 };
 
