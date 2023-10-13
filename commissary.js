@@ -11,16 +11,23 @@ const render_input = (values) => {
   return `
     <p>Google Sheet Config:</p>
     <label>Sheet ID
-      <input 
-        type=text 
-        required 
-        name="sheet_id" 
+      <input
+        type=text
+        required
+        name="sheet_id"
         placeholder="<your sheet ID here>"
         value=${(values && encode(values.sheet_id)) || ''}>
     </label>
+    <label>Sheet Title
+      <input
+        type=text
+        name="sheet_title"
+        placeholder="(defaults to first sheet)"
+        value=${(values && values.sheet_title) || ''}>
+    </label>
     <label>Base64 encoded string of JSON credentials
       <textarea
-        required 
+        required
         name="creds">${(values && encode(values.creds)) || ''}</textarea>
     </label>
   `
@@ -28,22 +35,41 @@ const render_input = (values) => {
 
 const load_sheet = async (manifest) => {
   if (!manifest || !manifest.sheet_id) return { title: '(none yet)' };
-  
-  try {
-    const sheet = new EasySheets(manifest.sheet_id, manifest.creds);
 
-    return sheet;
-  } 
+  try {
+    const easy_sheet = new EasySheets(manifest.sheet_id, manifest.creds);
+    await easy_sheet.authorize();
+
+    return easy_sheet;
+  }
   catch (e) {
     console.log(e);
     return { title: 'Invalid!' };
   }
 };
 
+const retry = async (method, args, count = 0) => {
+  let max = 3;
+  let result;
+
+  if (count < max) {
+    try {
+      result = await method(args);
+      return result;
+    }
+    catch (err) {
+      console.error(err);
+      count = count + 1;
+      await retry(method, args, count);
+    }
+  }
+}
+
 const render_work_preview = async (manifest) => {
-  let sheet = await load_sheet(manifest);
+  let easy_sheet = await load_sheet(manifest);
   let list = ['(Loading...)'];
-  if (sheet.getRange) list = await sheet.getRange('A:A');
+  let { sheet_title: sheet } = manifest;
+  if (easy_sheet.getRange) list = await easy_sheet.getRange('A:A', { sheet });
 
   return `
     <p>At random, pick dinner from this list: ${list.join(', ')}</p>
@@ -55,8 +81,8 @@ const update = async (lane, values) => {
   try {
     await load_sheet(values);
     return true;
-  } catch (e) { 
-    console.log(e);
+  } catch (e) {
+    console.error(e);
     return false;
   }
 };
@@ -67,8 +93,9 @@ const work = (lane, manifest) => {
 };
 
 const pick_meal = async (manifest, lane, done) => {
-  let sheet = await load_sheet(manifest);
-  let list = await sheet.getRange('A:A');
+  let easy_sheet = await load_sheet(manifest);
+  let { sheet_title: sheet } = manifest;
+  let list = await easy_sheet.getRange('A:A', { sheet });
   let result = list[Math.round(Math.random() * list.length)][0]
   done(manifest, lane, result);
 };
