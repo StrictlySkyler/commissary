@@ -1,11 +1,19 @@
-/* eslint no-unused-vars: 0 */
+const { first } = require('lodash');
+
 const name = 'commissary';
 const pkgs = [
-  'js-htmlencode', 'easy-sheets'
+  'js-htmlencode',
+  'git+https://github.com/strictlyskyler/google-sheets-api',
 ];
-let EasySheets;
 let encode;
 let Shipments;
+let Sheets;
+const range = 'A:A';
+
+process.env.SUPPRESS_SHEETS_LOGS = process.env.SUPPRESS_SHEETS_LOGS != undefined
+  ? process.env.SUPPRESS_SHEETS_LOGS
+  : true
+  ;
 
 const render_input = (values) => {
   return `
@@ -37,10 +45,15 @@ const load_sheet = async (manifest) => {
   if (!manifest || !manifest.sheet_id) return { title: '(none yet)' };
 
   try {
-    const easy_sheet = new EasySheets(manifest.sheet_id, manifest.creds);
-    await easy_sheet.authorize();
-
-    return easy_sheet;
+    const creds = JSON.parse(Buffer.from(manifest.creds, 'base64').toString());
+    const sheets = new Sheets({
+      email: creds.client_email,
+      key: creds.private_key,
+    });
+    const doc = await sheets.getSheets(manifest.sheet_id);
+    const sheet1 = await sheets.getSheet(manifest.sheet_id, doc[0].id);
+    const result = sheets.getRange(manifest.sheet_id, sheet1.id, range);
+    return result;
   }
   catch (e) {
     console.log(e);
@@ -66,10 +79,9 @@ const retry = async (method, args, count = 0) => {
 }
 
 const render_work_preview = async (manifest) => {
-  let easy_sheet = await load_sheet(manifest);
+  let sheet = await load_sheet(manifest);
   let list = ['(Loading...)'];
-  let { sheet_title: sheet } = manifest;
-  if (easy_sheet.getRange) list = await easy_sheet.getRange('A:A', { sheet });
+  if (sheet.length) { list = sheet; }
 
   return `
     <p>At random, pick dinner from this list: ${list.join(', ')}</p>
@@ -93,10 +105,8 @@ const work = (lane, manifest) => {
 };
 
 const pick_meal = async (manifest, lane, done) => {
-  let easy_sheet = await load_sheet(manifest);
-  let { sheet_title: sheet } = manifest;
-  let list = await easy_sheet.getRange('A:A', { sheet });
-  let result = list[Math.round(Math.random() * list.length)][0]
+  let sheet = await load_sheet(manifest);
+  let result = sheet[Math.round(Math.random() * sheet.length)][0];
   done(manifest, lane, result);
 };
 
@@ -113,8 +123,14 @@ const done = H.bind((manifest, lane, result) => {
 
 module.exports = {
   next: () => {
-    EasySheets = require('easy-sheets').default;
-    encode = require('js-htmlencode').htmlEncode;
+    try {
+      Sheets = require('google-sheets-api').Sheets;
+      encode = require('js-htmlencode').htmlEncode;
+    } catch (e) {
+      console.error('Unable to load dependency!');
+      console.error(e);
+      process.exit(2);
+    }
   },
   register: (lanes, users, harbors, shipments) => {
     Shipments = shipments;
