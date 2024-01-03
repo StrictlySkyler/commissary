@@ -89,7 +89,7 @@ const render_work_preview = async (manifest) => {
 };
 
 const update = async (lane, values) => {
-  if (!values.sheet_id || !values.account || !values.api_key) return false;
+  if (!values.sheet_id || !values.creds) return false;
   try {
     await load_sheet(values);
     return true;
