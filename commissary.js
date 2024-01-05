@@ -51,8 +51,16 @@ const load_sheet = async (manifest) => {
       key: creds.private_key,
     });
     const doc = await sheets.getSheets(manifest.sheet_id);
-    const sheet1 = await sheets.getSheet(manifest.sheet_id, doc[0].id);
-    const result = sheets.getRange(manifest.sheet_id, sheet1.id, range);
+    let subsheet_id;
+    if (manifest.sheet_title) {
+      subsheet_id = doc.find(s => s.title == manifest.sheet_title).id;
+    }
+    else subsheet_id = doc[0].id;
+    const result = await sheets.getRange(
+      manifest.sheet_id,
+      subsheet_id,
+      range,
+    );
     return result;
   }
   catch (e) {
