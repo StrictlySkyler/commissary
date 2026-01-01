@@ -1,0 +1,226 @@
+/*******************************************************************************
+ * A Meteor Developer's ECMA 6th Edition ESLint Configuration
+ * by @iDoMeteor
+ *
+ * http://github.com/idometeor/meteor-style-skeleton/.eslint
+ *
+ * TL;DR
+ *
+ * This is more friendly than Meteor's config.. mostly.  Not always though. :)
+ * Check Github/README.md for quick usage instructions.
+ *
+ * Description
+ *
+ * Meteor upholds a high standard for coding, so do I, and so should you.
+ * With that goal in mind, I set every option in this file with intent.  It
+ * may provide you with a fair amount of frustration if you are new to linting
+ * tools.
+ *
+ * This is intended to be integrated into your editor (along with .editorconfig)
+ * in such a way as to allow you to use it continually.  If you drop it on a
+ * large, existing code base that may be... lax in coding standards, expect to
+ * get an enormous amount of reports.
+ *
+ * However, if you already have smart ECMA coding style, then you will most
+ * likely appreciate the learning experience / tightening up of your style.
+ *
+ * Meter and ECMA are both intended to be flexible.  This file allows for that
+ * flexibility where appropriate, but also has sane protections for actual
+ * poor programming methodology.  Hopefully it will allow enough flexibility
+ * to still take advantage of the fun parts of the language.
+ *
+ * In general, this configuration in tandem with my .jscsrc should provide
+ * one of the best programmatic ways to ensure that your Meteor code is as
+ * near to being inline with the MDG Style Guide as is practical from an
+ * automated tool.
+ *
+ * Caveats:
+ *
+ * I allow (and prefer, unless Sciencing) ==.  The Abstract Equality
+ * Comparison Algorithm is no more "obscure (src: ESLint)" than is the
+ * Strict Equality Comparison Algorithm.  Actually, it comes first not only
+ * in this paragraph, but also in the ECMA specification (11.9.3 vs 11.9.6).
+ *
+ * The standard convention comes from the same old-school origin as using !!.
+ * Namely, poor programming practices and ECMA implementations from the past.
+ * There are distinct advantages to using == in non-precision (read
+ * non-mission-critical) contexts.  I'll leave that dark magic up to you to
+ * discover.
+ *
+ * Point is, you should probably be statically typing if you are that are that
+ * concerned about precision, or not concerned about this level of semantics if
+ * your ability to keep your types straight is ... still developing.
+ *
+ * That being said, I throw warnings on (x == null) || (x != null). :p
+ *
+ * This is not for niave Javascripters, you should be able to
+ * grok what this is going to do for you or use eslint --init at the command
+ * line and go from there.
+ *
+ * I use object literals instead of switch, as one should.  However, once in
+ * a while, a switch w/fallthrough and/or no default is actually highly useful.
+ * For instance, Twiefbot uses micro-switches in the natural language
+ * processing.  Therefore, they are allowed, but will throw warnings.  That
+ * means that, while you should not do it, if you really know what you're doing
+ * then go for it.
+ *
+ * Contributing:
+ *    I welcome pull requests!
+ *
+ * ****************************************************************************/
+
+{
+  "parser": "@babel/eslint-parser",
+  "parserOptions": {
+    "requireConfigFile": false
+  },
+  "env": {
+    "browser": true,
+    "es6": true,
+    "jasmine": true,
+    "jquery": true,
+    "meteor": true,
+    "mocha": true,
+    "mongo": true,
+    "node": true,
+    "phantomjs": true,
+    "shared-node-browser": true,
+    "worker": true
+  },
+
+  "rules": {
+
+    /**
+     * General
+     */
+
+    // This will throw warnings anywhere 'use strict' occurs, which is good.
+    "strict": 0,
+    "object-curly-spacing": ["error", "always"],
+    "indent": ["error", 2, { "SwitchCase": 1 }],
+    "block-scoped-var": 2,
+    "dot-notation": [1, {"allowKeywords": true}],
+    "no-param-reassign": 0,
+    "radix": 2,
+    "yoda": 2,
+    "vars-on-top": 2,
+    "curly": 0,
+    "no-cond-assign": [2, "always"],
+    "no-constant-condition": 2,
+    "no-dupe-keys": 2,
+    "no-duplicate-case": 2,
+    "no-else-return": 2,
+    "no-empty": 2,
+    "no-eq-null": 2,
+    "no-eval": 0,
+    "no-ex-assign": 2,
+    "no-extend-native": 2,
+    "no-extra-bind": 2,
+    "no-extra-semi": 2,
+    "no-func-assign": 2,
+    "no-implied-eval": 1,
+    "no-inner-declarations": 2,
+    "no-invalid-regexp": 2,
+    "no-irregular-whitespace": 2,
+    "no-lone-blocks": 2,
+    "no-loop-func": 2,
+    "no-native-reassign": 2,
+    "no-new": 1,
+    "no-new-func": 2,
+    "no-new-wrappers": 2,
+    "no-obj-calls": 2,
+    "no-octal": 1,
+    "no-octal-escape": 2,
+    "no-proto": 2,
+    "no-redeclare": 2,
+    "no-return-assign": 0,
+    "no-script-url": 2,
+    "no-self-compare": 2,
+    "no-sequences": 2,
+    "no-shadow": [1, {"hoist": "functions"}],
+    "no-sparse-arrays": 2,
+    "no-throw-literal": 2,
+    "no-unreachable": 2,
+    "no-with": 2,
+    "use-isnan": 2,
+    "wrap-iife": [2, "any"],
+    "comma-dangle": [1, "always-multiline"],
+    "consistent-return": 1,
+    "default-case": 1,
+    "guard-for-in": 1,
+    "max-len": ["error", {"code": 80, "tabWidth": 2}],
+    "no-caller": 2,
+    "no-extra-boolean-cast": 1,
+    "no-fallthrough": 2,
+    "no-floating-decimal": 2,
+    "no-multi-spaces": 2,
+    "no-multi-str": 2,
+    "no-shadow-restricted-names": 2,
+    "no-unused-vars": [1, {
+      "vars": "local",
+      "args": "after-used"
+    }],
+    "no-use-before-define": 0,
+
+    /**
+     * Style
+     */
+    "brace-style": [2,
+      "stroustrup", {
+      "allowSingleLine": true
+    }],
+    "comma-spacing": [2, {
+      "before": false,
+      "after": true
+    }],
+    "comma-style": [2, "last"],
+    "eol-last": 1,
+    "func-names": 0,
+    "func-style": 1,
+    "key-spacing": [2, {
+        "afterColon": true,
+        "beforeColon": false
+    }],
+    "linebreak-style": [
+      2,
+      "unix"
+    ],
+    "new-cap": 0,
+    "no-multiple-empty-lines": 2,
+    "no-nested-ternary": 2,
+    "no-new-object": 2,
+    "no-array-constructor": 2,
+    "no-spaced-func": 2,
+    "no-trailing-spaces": 2,
+    "no-underscore-dangle": 0,
+    "one-var": [2, "never"],
+    "quotes": [
+      0, "single", "avoid-escape"
+    ],
+    "semi": [2, "always"],
+    "semi-spacing": [2, {
+      "before": false,
+      "after": true
+    }],
+    "space-before-blocks": 2,
+    "space-before-function-paren": [2, "always"],
+    "space-infix-ops": 2,
+    "keyword-spacing": 2
+  },
+  "overrides": [
+    {
+      "files": [
+        "imports/startup/server/**/*.js",
+        "imports/**/server/**/*.js",
+        "server/**/*.js",
+        "**/*.test.js",
+        "babel.config.js"
+      ],
+      "parser": "espree",
+      "parserOptions": {
+        "ecmaVersion": 2022,
+        "sourceType": "module"
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "harbormaster-commissary",
+  "version": "1.0.0",
+  "description": "Pick a meal from a Google Sheet",
+  "main": "commissary.js",
+  "scripts": {
+    "lint": "eslint --max-warnings 0 \"**/*.js\"",
+    "lint:fix": "eslint --fix --max-warnings 0 \"**/*.js\"",
+    "pretest": "npm run lint",
+    "test": "echo \"ok\""
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.23.6",
+    "@babel/eslint-parser": "^7.23.3",
+    "eslint": "^8.55.0"
+  }
+}
+

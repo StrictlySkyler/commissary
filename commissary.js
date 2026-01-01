@@ -1,5 +1,3 @@
-const { first } = require('lodash');
-
 const name = 'commissary';
 const pkgs = [
   'js-htmlencode',
@@ -12,8 +10,7 @@ const range = 'A:A';
 
 process.env.SUPPRESS_SHEETS_LOGS = process.env.SUPPRESS_SHEETS_LOGS != undefined
   ? process.env.SUPPRESS_SHEETS_LOGS
-  : true
-  ;
+  : true;
 
 const render_input = (values) => {
   return `
@@ -38,7 +35,7 @@ const render_input = (values) => {
         required
         name="creds">${(values && encode(values.creds)) || ''}</textarea>
     </label>
-  `
+  `;
 };
 
 const load_sheet = async (manifest) => {
@@ -50,16 +47,25 @@ const load_sheet = async (manifest) => {
       email: creds.client_email,
       key: creds.private_key,
     });
-    const doc = await sheets.getSheets(manifest.sheet_id);
+    const max_retries = 4;
+    const base_delay_ms = 300;
+    const doc = await retry(
+      () => sheets.getSheets(manifest.sheet_id),
+      max_retries,
+      base_delay_ms,
+    );
     let subsheet_id;
     if (manifest.sheet_title) {
-      subsheet_id = doc.find(s => s.title == manifest.sheet_title).id;
+      const subsheet = doc.find((s) => s.title == manifest.sheet_title);
+      const sheet_title = manifest.sheet_title;
+      if (!subsheet) throw new Error(`Sheet title not found: ${sheet_title}`);
+      subsheet_id = subsheet.id;
     }
     else subsheet_id = doc[0].id;
-    const result = await sheets.getRange(
-      manifest.sheet_id,
-      subsheet_id,
-      range,
+    const result = await retry(
+      () => sheets.getRange(manifest.sheet_id, subsheet_id, range),
+      max_retries,
+      base_delay_ms,
     );
     return result;
   }
@@ -69,22 +75,46 @@ const load_sheet = async (manifest) => {
   }
 };
 
-const retry = async (method, args, count = 0) => {
-  let max = 3;
-  let result;
+const retry_re = /(timeout|timed out|thrott|rate limit|quota|exceeded)/i;
 
-  if (count < max) {
+const retry = async (fn, max_retries = 3, base_delay_ms = 250) => {
+  const max_delay_ms = 5000;
+  const is_transient = (err) => {
+    const code = err && err.code;
+    const status = err && (
+      err.status ||
+      err.statusCode ||
+      (err.response && err.response.status)
+    );
+    if (status === 408 || status === 429) return true;
+    if (typeof status === 'number' && status >= 500) return true;
+    if (code === 'ETIMEDOUT' || code === 'ESOCKETTIMEDOUT') return true;
+    if (code === 'ECONNRESET' || code === 'EAI_AGAIN') return true;
+    const msg = err && err.message;
+    return typeof msg === 'string' && retry_re.test(msg);
+  };
+
+  for (let attempt = 0; attempt <= max_retries; attempt++) {
     try {
-      result = await method(args);
-      return result;
+      return await fn();
     }
     catch (err) {
-      console.error(err);
-      count = count + 1;
-      await retry(method, args, count);
+      const is_last = attempt === max_retries;
+      /* istanbul ignore next */
+      if (!H.isTest) console.error(err);
+      if (is_last || !is_transient(err)) throw err;
+
+      const exp_delay_ms = Math.min(
+        max_delay_ms,
+        base_delay_ms * (2 ** attempt),
+      );
+      const jitter_ms = Math.floor(Math.random() * 150);
+      const delay_ms = exp_delay_ms + jitter_ms;
+      await new Promise((resolve) => setTimeout(resolve, delay_ms));
     }
   }
-}
+  throw new Error('Retry attempts exhausted');
+};
 
 const render_work_preview = async (manifest) => {
   let sheet = await load_sheet(manifest);
@@ -101,32 +131,40 @@ const update = async (lane, values) => {
   try {
     await load_sheet(values);
     return true;
-  } catch (e) {
+  }
+  catch (e) {
     console.error(e);
     return false;
   }
 };
 
 const work = (lane, manifest) => {
-  pick_meal(manifest, lane, done).catch(err => console.error);
+  pick_meal(manifest, lane).catch((err) => {
+    /* istanbul ignore next */
+    if (!H.isTest) console.error(err);
+  });
   return manifest;
 };
 
-const pick_meal = async (manifest, lane, done) => {
-  let sheet = await load_sheet(manifest);
-  let result = sheet[Math.round(Math.random() * sheet.length)][0];
-  done(manifest, lane, result);
+const pick_meal = async (manifest, lane) => {
+  const sheet = await load_sheet(manifest);
+  const index = Math.floor(Math.random() * sheet.length);
+  const result = sheet[index] && sheet[index][0];
+  return await done(manifest, lane, result);
 };
 
-const done = H.bind((manifest, lane, result) => {
-  let key = new Date();
-  let exit_code = 0;
-  // console.log(result);
-  let shipment = Shipments.findOne({ _id: manifest.shipment_id });
-  shipment.stdout[key] = result;
-  manifest.result = result;
-  Shipments.update({ _id: shipment._id }, shipment);
-  H.end_shipment(lane, exit_code, manifest);
+const done = H.bind(async (manifest, lane, result) => {
+  const key = new Date().toISOString().replace(/\./g, '_');
+  const exit_code = 0;
+  const shipment_id = manifest.shipment_id;
+  const rendered = typeof result === 'string' ? result : JSON.stringify(result);
+
+  manifest.result = rendered;
+  await Shipments.updateAsync(
+    { _id: shipment_id },
+    { $set: { [`stdout.${key}`]: rendered } },
+  );
+  return await H.end_shipment(lane, exit_code, manifest);
 });
 
 module.exports = {
@@ -134,13 +172,14 @@ module.exports = {
     try {
       Sheets = require('google-sheets-api').Sheets;
       encode = require('js-htmlencode').htmlEncode;
-    } catch (e) {
+    }
+    catch (e) {
       console.error('Unable to load dependency!');
       console.error(e);
       process.exit(2);
     }
   },
-  register: (lanes, users, harbors, shipments) => {
+  register: (_lanes, _users, _harbors, shipments) => {
     Shipments = shipments;
     return { name, pkgs };
   },
